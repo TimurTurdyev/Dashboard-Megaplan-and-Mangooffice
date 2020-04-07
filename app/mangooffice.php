@@ -18,7 +18,6 @@
 		{
 
 			$setting = json_decode(file_get_contents( './config/config_mangooffice.json' ));
-			$this->dir = $setting;
 			$this->api_key = $setting->api_key;
 			$this->api_salt = $setting->api_salt;
 		}
