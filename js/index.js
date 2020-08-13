@@ -4,7 +4,6 @@ let body = document.querySelector('body'),
 
 buttonChangeFullscreen.addEventListener('click', function (event) {
     event.preventDefault();
-    console.log(this.getAttribute('data-full'))
     if (this.getAttribute('data-full') == 'on') {
         cancelFullscreen();
     } else {
@@ -49,35 +48,123 @@ function cancelFullscreen() {
     }
 }
 
+//.manager_1000001, .manager_1000043 {
+//             display: none;
+//         }
+//
+//         #table_B .manager_1000043 {
+//             display: contents;
+//         }
+
+function managerBlock($managerId) {
+    return ['1000001', '1000043'].indexOf($managerId + '') != -1;
+}
+
 function init() {
+    const plan = 20000000;
+    let total = 0,
+        balancePercent = 0,
+        currentPercent = 0;
+
     let megaplan = axios.get('index.php?type=megaplan')
         .then(function (response) {
-            //managerDeals(response.data.manager_total);
-            renderTemplate('#table_A',
-                response.data.manager_total,
-                function (manager, i) {
-                    let total = Math.round(manager['total']);
-                    let class_add = total > 2000150 ? 'table-success text-dark' : '';
-                    return `<tr class="${class_add} manager_${manager['manager_id']}">
+            console.log(response.data)
+
+            if (response.data.deals_to_manager) {
+                var t = 1;
+                renderTemplate('#table_E',
+                    response.data.deals_to_manager,
+                    function (manager, i) {
+                        if (managerBlock(manager['manager_id']) === true) return '';
+                        i = t++;
+                        return `<tr class="manager_${manager['manager_id']}">
+                            <th scope ="row">${i++} </th>
+                            <td>${manager['name']} </td>
+                            <td>${manager['total']} % </td>
+                            </tr>`;
+                    });
+            }
+            if (response.data.manager_total) {
+                var t = 1;
+                renderTemplate('#table_A',
+                    response.data.manager_total,
+                    function (manager, i) {
+                        if (managerBlock(manager['manager_id']) === true) return '';
+                        i = t++;
+                        let managerTotal = Math.round(manager['total']);
+                        let class_add = managerTotal >= 2500000 ? 'table-success text-dark' : 'table-danger text-dark';
+                        total += managerTotal;
+                        return `<tr class="${class_add} manager_${manager['manager_id']}">
                             <th scope="row">${i++}</th>
                             <td>${manager['name']}</td>
                             <td>${new Intl.NumberFormat('ru-RU', {
-                        style: 'currency',
-                        currency: 'RUB'
-                    }).format(total).replace(',00', '')}</td>
+                            style: 'currency',
+                            currency: 'RUB'
+                        }).format(managerTotal).replace(',00', '')}</td>
                         </tr>`;
-                });
-
-            response.data.manager_total.sort((a, b) => b['not_processed'] - a['not_processed']);
-            renderTemplate('#table_B',
-                response.data.manager_total,
-                function (manager, i) {
-                    return `<tr>
+                    });
+                var t = 1;
+                response.data.manager_total.sort((a, b) => b['not_processed'] - a['not_processed']);
+                renderTemplate('#table_B',
+                    response.data.manager_total,
+                    function (manager, i) {
+                        if ('1000043' !== '' + manager['manager_id'] && managerBlock(manager['manager_id']) === true) return '';
+                        i = t++;
+                        let total = Math.round(manager['not_processed']);
+                        let class_add = total > 0 ? 'table-danger text-dark' : '';
+                        return `<tr class="${class_add} manager_${manager['manager_id']}">
                             <th scope="row">${i++}</th>
                             <td>${manager['name']}</td>
                             <td>${manager['not_processed']}</td>
                         </tr>`;
+                    })
+                // console.log('total', total)
+                currentPercent = Math.round((total / plan) * 100);
+                balancePercent = (100 - currentPercent);
+
+                charRenderPlan({
+                    plan: 'Всего: ' + new Intl.NumberFormat('ru-RU', {
+                        style: 'currency',
+                        currency: 'RUB'
+                    }).format(plan).replace(',00', ''),
+                    labels: [
+                        new Intl.NumberFormat('ru-RU', {
+                            style: 'currency',
+                            currency: 'RUB'
+                        }).format(plan - total).replace(',00', ''),
+                        new Intl.NumberFormat('ru-RU', {
+                            style: 'currency',
+                            currency: 'RUB'
+                        }).format(total).replace(',00', '')
+                    ],
+                    percents: [balancePercent, currentPercent]
                 })
+            }
+
+            if (response.data.manager_day_total) {
+                //table_D
+                var t = 1;
+                renderTemplate('#table_D',
+                    response.data.manager_day_total,
+                    function (manager, i) {
+                        if (managerBlock(manager['manager_id']) === true) return '';
+                        i = t++;
+
+                        let total = Math.round(manager['current_day_total']);
+                        let class_add = total >= 80000 ? 'table-success text-dark' : 'table-danger text-dark';
+                        return `<tr class="${class_add} manager_${manager['manager_id']}">
+                            <th scope="row">${i++}</th>
+                            <td>${manager['name']}</td>
+                            <td>${new Intl.NumberFormat('ru-RU', {
+                            style: 'currency',
+                            currency: 'RUB'
+                        }).format(total).replace(',00', '')}</td>
+                        </tr>`;
+                    });
+            }
+
+            document.getElementById('change_time').innerHTML = (response.data.change_file ? response.data.change_file : '');
+            //managerDeals(response.data.manager_total);
             return 'megaplan-ok';
         })
         .catch(function (error) {
@@ -90,7 +177,7 @@ function init() {
             renderTemplate('#table_C',
                 response.data.users,
                 function (manager, i) {
-                    let class_add = manager['count_calls'] >= 15 ? 'table-success' : 'table-danger';
+                    let class_add = manager['count_calls'] >= 20 ? 'table-success' : 'table-danger';
                     return `<tr class="${class_add} text-dark">
                             <th scope="row">${i++}</th>
                             <td>${manager['name']}</td>
@@ -111,7 +198,9 @@ function init() {
     })
 }
 
-init();
+setTimeout(function () {
+    init();
+}, 1000);
 
 
 function renderTemplate(selector, managersData, callback) {
@@ -136,9 +225,8 @@ function timeFormat(seconds) {
     ].join(':');
 }
 
-/*
-const config = {
-    chartColors: {
+const charConfig = {
+    colors: {
         red: 'rgb(255, 99, 132)',
         orange: 'rgb(255, 159, 64)',
         yellow: 'rgb(255, 205, 86)',
@@ -155,9 +243,94 @@ const config = {
     mango: {
         labels: [],
         total: [],
-    }
+    },
+    months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Нояюрь', 'Декабрь']
 }
 
+function charRenderPlan(data) {
+    setTimeout(function () {
+        // console.log(data.percents)
+        new Chart(document.getElementById("chart_month"), {
+            type: "bar",
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: data.plan,
+                    data: data.percents,
+                    fill: false,
+                    backgroundColor: ["rgba(255, 99, 132, 0.7)", "rgba(75, 192, 192, 0.7)"],
+                    borderColor: ["rgb(255, 99, 132)", "rgb(75, 192, 192)"],
+                    borderWidth: 1,
+                }],
+            },
+
+            options: {
+                responsive: true,
+                legend: {
+                    labels: {
+                        // This more specific font property overrides the global property
+                        fontColor: 'white',
+                        fontSize: 28
+                    }
+                },
+                title: {
+                    display: false,
+                },
+                tooltips: false,
+                hover: false,
+                animation: {
+                    duration: 1,
+                    onComplete: function () {
+                        let chartInstance = this.chart
+                        ctx = chartInstance.ctx;
+                        //Chart.defaults.global.defaultFontSize
+                        ctx.font = Chart.helpers.fontString(20, Chart.defaults.global.defaultFontStyle, Chart.defaults.global.defaultFontFamily);
+                        ctx.fillStyle = 'white';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'bottom';
+
+                        this.data.datasets.forEach(function (dataset, i) {
+                            var meta = chartInstance.controller.getDatasetMeta(i);
+                            meta.data.forEach(function (bar, index) {
+                                var data = dataset.data[index];
+                                if (index === 0) {
+                                    data = 'Осталось ' + data + '%';
+                                } else if (index === 1) {
+                                    data = 'Выполнено ' + data + '%';
+                                }
+                                // console.log(data)
+                                ctx.fillText(data, bar._model.x - 75, bar._model.y - 5);
+                            });
+                        });
+                    }
+                },
+                scales: {
+                    yAxes: [
+                        {
+                            ticks: {
+                                fontColor: 'white',
+                                min: 0,
+                                max: 100,// Your absolute max value
+                                callback: function (value) {
+                                    return (value / this.max * 100).toFixed(0) + '%'; // convert it to percentage
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    ],
+                    xAxes: [{
+                        ticks: {
+                            fontColor: 'white',
+                            fontSize: 28
+                        },
+                    }]
+                },
+            },
+        });
+    }, 1000);
+}
+
+/*
 function addData(chart, label, data) {
     chart.data.labels.push(label);
     chart.data.datasets.forEach((dataset) => {
